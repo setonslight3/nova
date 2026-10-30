@@ -3,7 +3,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 /**
  * Vercel Serverless Function: /api/chat
  * Token-optimized Gemini AI endpoint supporting text + multimodal photos/PDFs,
- * automatic model failover (gemini-2.5-flash -> gemini-2.5-flash-lite), and structured JSON UI actions.
+ * automatic multi-model failover (gemini-2.5-flash -> gemini-3.5-flash-lite -> gemini-3.5-flash),
+ * zero-thinking-overhead JSON output, and structured UI actions.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -20,7 +21,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const apiKey = process.env.GEMINI_API_KEY;
   const primaryModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-  const fallbackModel = 'gemini-2.5-flash-lite';
+  const modelChain = Array.from(
+    new Set([
+      primaryModel,
+      'gemini-2.5-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-3.5-flash',
+      'gemini-flash-lite-latest',
+    ])
+  );
 
   if (!apiKey) {
     return res.status(503).json({
@@ -94,30 +103,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    const bodyPayload = JSON.stringify({
-      systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: 'user', parts }],
-      generationConfig: {
+    let geminiRes: Response | null = null;
+    let lastErrorStatus = 502;
+    let lastErrorText = '';
+    let activeModel = primaryModel;
+
+    for (const candidateModel of modelChain) {
+      activeModel = candidateModel;
+      const supportsZeroThinking = candidateModel === 'gemini-2.5-flash';
+      const generationConfig: Record<string, unknown> = {
         temperature: 0.35,
-        maxOutputTokens: 360,
+        maxOutputTokens: 700,
         responseMimeType: 'application/json',
-      },
-    });
-
-    let geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${primaryModel}:generateContent?key=${encodeURIComponent(
-        apiKey
-      )}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: bodyPayload,
+      };
+      if (supportsZeroThinking) {
+        generationConfig.thinkingConfig = { thinkingBudget: 0 };
       }
-    );
 
-    if (!geminiRes.ok && primaryModel !== fallbackModel && [429, 500, 503].includes(geminiRes.status)) {
-      geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${fallbackModel}:generateContent?key=${encodeURIComponent(
+      const bodyPayload = JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts }],
+        generationConfig,
+      });
+
+      const attempt = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${candidateModel}:generateContent?key=${encodeURIComponent(
           apiKey
         )}`,
         {
@@ -126,20 +136,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           body: bodyPayload,
         }
       );
+
+      if (attempt.ok) {
+        geminiRes = attempt;
+        break;
+      }
+
+      lastErrorStatus = attempt.status;
+      lastErrorText = await attempt.text();
     }
 
-    if (!geminiRes.ok) {
-      const errText = await geminiRes.text();
-      return res.status(geminiRes.status).json({
-        error: 'Gemini API request failed',
-        details: errText.slice(0, 400),
+    if (!geminiRes) {
+      return res.status(lastErrorStatus).json({
+        error: 'Gemini API request failed across model chain',
+        details: lastErrorText.slice(0, 400),
       });
     }
 
     const payload = await geminiRes.json();
+    const candidateParts: Array<{ thought?: boolean; text?: string }> =
+      payload?.candidates?.[0]?.content?.parts || [];
+    const textPart =
+      candidateParts.find((p) => !p.thought && typeof p.text === 'string') || candidateParts[0];
     const rawCandidate =
-      payload?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      '{"reply":"How can I help with your delivery?","actions":[]}';
+      textPart?.text || '{"reply":"How can I help with your delivery?","actions":[]}';
     const usageTokens = Number(payload?.usageMetadata?.totalTokenCount || 280);
 
     let parsed: { reply?: string; actions?: unknown[] } = {};
@@ -153,6 +173,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       reply: parsed.reply || 'Done! Let me know what else you need.',
       actions: Array.isArray(parsed.actions) ? parsed.actions : [],
       tokensUsed: usageTokens,
+      model: activeModel,
     });
   } catch (err) {
     return res.status(500).json({

@@ -57,7 +57,15 @@ function readJsonBody(req, maxBytes = 15 * 1024 * 1024) {
 async function handleChat(req, res) {
   const apiKey = process.env.GEMINI_API_KEY;
   const primaryModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-  const fallbackModel = 'gemini-2.5-flash-lite';
+  const modelChain = Array.from(
+    new Set([
+      primaryModel,
+      'gemini-2.5-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-3.5-flash',
+      'gemini-flash-lite-latest',
+    ])
+  );
 
   if (!apiKey) {
     return sendJson(res, 503, { error: 'GEMINI_API_KEY is not configured.', missingKey: true });
@@ -81,9 +89,22 @@ async function handleChat(req, res) {
       compactCatalog,
       'STATE:',
       compactState,
-      'Return STRICT JSON matching: {"reply":"string","actions":[...]}',
-      'Allowed actions: ADD_TO_BAG(productId,quantity), REMOVE_FROM_BAG(productId), CLEAR_BAG, NAVIGATE_HOME, NAVIGATE_BROWSE(nodeId), NAVIGATE_SERVICE(service: Laundry | Parcel Pickup), SET_LAUNDRY_QTY(serviceId: wash|iron|dry|bedding, quantity), UPDATE_DELIVERY_DETAILS(details:{university,campusAddress,phone}), GO_TO_CHECKOUT, GO_TO_PAYMENT, OPEN_BAG, OPEN_ORDERS, OPEN_SETTINGS, OPEN_ADMIN.',
+      'Return STRICT JSON matching:',
+      '{"reply":"string","actions":[...]}',
+      'Allowed action objects in actions array:',
+      '- {"type":"ADD_TO_BAG","productId":"<id>","quantity":1}',
+      '- {"type":"REMOVE_FROM_BAG","productId":"<id>"}',
+      '- {"type":"CLEAR_BAG"}',
+      '- {"type":"NAVIGATE_HOME"}',
+      '- {"type":"NAVIGATE_BROWSE","nodeId":"food|food/dishes|food/fastfood|food/snacks|food/drinks|groceries|groceries/foodstuffs|groceries/beverages|groceries/snacks|groceries/household|groceries/personal"}',
+      '- {"type":"NAVIGATE_SERVICE","service":"Laundry|Parcel Pickup"}',
+      '- {"type":"SET_LAUNDRY_QTY","serviceId":"wash|iron|dry|bedding","quantity":1}',
+      '- {"type":"UPDATE_DELIVERY_DETAILS","details":{"university":"...","campusAddress":"...","phone":"..."}}',
+      '- {"type":"GO_TO_CHECKOUT"}',
+      '- {"type":"GO_TO_PAYMENT"}',
+      '- {"type":"OPEN_BAG"} | {"type":"OPEN_ORDERS"} | {"type":"OPEN_SETTINGS"} | {"type":"OPEN_ADMIN"}',
       'If user confirms they are ready to pay or asks to pay, include {"type":"GO_TO_PAYMENT"}.',
+      'If an image/PDF is a shopping list, match catalog items and emit ADD_TO_BAG actions. If it is a payment receipt, emit GO_TO_PAYMENT and acknowledge receipt.',
     ].join('\n');
 
     const parts = [];
@@ -111,30 +132,30 @@ async function handleChat(req, res) {
       }
     }
 
-    const geminiPayload = JSON.stringify({
-      systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: 'user', parts }],
-      generationConfig: {
+    let gRes = null;
+    let lastErrorStatus = 502;
+    let lastErrorText = '';
+    let activeModel = primaryModel;
+
+    for (const candidateModel of modelChain) {
+      activeModel = candidateModel;
+      const generationConfig = {
         temperature: 0.35,
-        maxOutputTokens: 360,
+        maxOutputTokens: 700,
         responseMimeType: 'application/json',
-      },
-    });
-
-    let gRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${primaryModel}:generateContent?key=${encodeURIComponent(
-        apiKey
-      )}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: geminiPayload,
+      };
+      if (candidateModel === 'gemini-2.5-flash') {
+        generationConfig.thinkingConfig = { thinkingBudget: 0 };
       }
-    );
 
-    if (!gRes.ok && primaryModel !== fallbackModel && [429, 500, 503].includes(gRes.status)) {
-      gRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${fallbackModel}:generateContent?key=${encodeURIComponent(
+      const geminiPayload = JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts }],
+        generationConfig,
+      });
+
+      const attempt = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${candidateModel}:generateContent?key=${encodeURIComponent(
           apiKey
         )}`,
         {
@@ -143,17 +164,29 @@ async function handleChat(req, res) {
           body: geminiPayload,
         }
       );
+
+      if (attempt.ok) {
+        gRes = attempt;
+        break;
+      }
+
+      lastErrorStatus = attempt.status;
+      lastErrorText = await attempt.text();
     }
 
-    if (!gRes.ok) {
-      const errTxt = await gRes.text();
-      return sendJson(res, gRes.status, { error: 'Gemini error', details: errTxt.slice(0, 400) });
+    if (!gRes) {
+      return sendJson(res, lastErrorStatus, {
+        error: 'Gemini error across model chain',
+        details: lastErrorText.slice(0, 400),
+      });
     }
 
     const payload = await gRes.json();
+    const candidateParts = payload?.candidates?.[0]?.content?.parts || [];
+    const textPart =
+      candidateParts.find((p) => !p.thought && typeof p.text === 'string') || candidateParts[0];
     const rawCandidate =
-      payload?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      '{"reply":"How can I help with your delivery?","actions":[]}';
+      textPart?.text || '{"reply":"How can I help with your delivery?","actions":[]}';
     const usageTokens = Number(payload?.usageMetadata?.totalTokenCount || 280);
 
     let parsed = {};
@@ -167,6 +200,7 @@ async function handleChat(req, res) {
       reply: parsed.reply || 'Done! Let me know what else you need.',
       actions: Array.isArray(parsed.actions) ? parsed.actions : [],
       tokensUsed: usageTokens,
+      model: activeModel,
     });
   } catch (err) {
     return sendJson(res, 500, { error: err instanceof Error ? err.message : 'Server error' });
@@ -188,6 +222,7 @@ const server = http.createServer((req, res) => {
   if (urlObj.pathname === '/api/health') {
     return sendJson(res, 200, {
       ok: true,
+      status: 'ok',
       service: 'nova-render-server',
       geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
       timestamp: new Date().toISOString(),
