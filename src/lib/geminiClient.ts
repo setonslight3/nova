@@ -241,37 +241,47 @@ export async function resolveUserTurn(
     }
   }
 
-  try {
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message,
-        compactCatalog,
-        compactState,
-        recentTurns,
-        attachments: attachments.map((a) => ({
-          name: a.name,
-          mimeType: a.mimeType,
-          dataUrl: a.dataUrl,
-          textContent: a.textContent,
-        })),
-      }),
-    });
+  const endpoints = ['/api/chat'];
+  const renderBackup = (import.meta.env.VITE_RENDER_API_URL as string | undefined)?.trim();
+  if (renderBackup) {
+    endpoints.push(`${renderBackup.replace(/\/$/, '')}/api/chat`);
+  }
 
-    if (response.ok) {
-      const data = await response.json();
-      return {
-        reply: data.reply,
-        actions: Array.isArray(data.actions) ? data.actions : [],
-        engine: 'gemini',
-        confidence: 0.95,
-        tokensSavedEstimate: 420,
-        tokensUsedEstimate: Number(data.tokensUsed || 260),
-      };
+  const requestBody = JSON.stringify({
+    message,
+    compactCatalog,
+    compactState,
+    recentTurns,
+    attachments: attachments.map((a) => ({
+      name: a.name,
+      mimeType: a.mimeType,
+      dataUrl: a.dataUrl,
+      textContent: a.textContent,
+    })),
+  });
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: requestBody,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          reply: data.reply,
+          actions: Array.isArray(data.actions) ? data.actions : [],
+          engine: 'gemini',
+          confidence: 0.95,
+          tokensSavedEstimate: 420,
+          tokensUsedEstimate: Number(data.tokensUsed || 260),
+        };
+      }
+    } catch {
+      // Try next configured endpoint
     }
-  } catch {
-    // Running in local Vite dev before Vercel deployment -> smart local fallback
   }
 
   return buildSmartOfflineFallback(message, attachments, ctx);

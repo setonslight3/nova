@@ -441,3 +441,27 @@ export function formatOrderStatus(status: OrderStatus): string {
       return 'Cancelled';
   }
 }
+
+export function subscribeToNovaRealtime(callbacks: {
+  onOrdersChange?: () => void;
+  onCatalogChange?: () => void;
+  onSettingsChange?: () => void;
+}): () => void {
+  if (!supabase) return () => {};
+  const channel = supabase
+    .channel('nova-live-sync')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+      callbacks.onOrdersChange?.();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
+      callbacks.onCatalogChange?.();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'platform_settings' }, () => {
+      callbacks.onSettingsChange?.();
+    })
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}

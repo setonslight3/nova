@@ -2,16 +2,25 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 /**
  * Vercel Serverless Function: /api/chat
- * Token-optimized Gemini AI endpoint supporting text + multimodal photos/PDFs
- * and structured JSON UI actions so Nova can add items, navigate sections, and move users to checkout/payment.
+ * Token-optimized Gemini AI endpoint supporting text + multimodal photos/PDFs,
+ * automatic model failover (gemini-2.5-flash -> gemini-2.5-flash-lite), and structured JSON UI actions.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const primaryModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const fallbackModel = 'gemini-2.5-flash-lite';
 
   if (!apiKey) {
     return res.status(503).json({
@@ -85,23 +94,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(
-      apiKey
-    )}`;
-
-    const geminiRes = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts }],
-        generationConfig: {
-          temperature: 0.35,
-          maxOutputTokens: 360,
-          responseMimeType: 'application/json',
-        },
-      }),
+    const bodyPayload = JSON.stringify({
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ role: 'user', parts }],
+      generationConfig: {
+        temperature: 0.35,
+        maxOutputTokens: 360,
+        responseMimeType: 'application/json',
+      },
     });
+
+    let geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${primaryModel}:generateContent?key=${encodeURIComponent(
+        apiKey
+      )}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: bodyPayload,
+      }
+    );
+
+    if (!geminiRes.ok && primaryModel !== fallbackModel && [429, 500, 503].includes(geminiRes.status)) {
+      geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${fallbackModel}:generateContent?key=${encodeURIComponent(
+          apiKey
+        )}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: bodyPayload,
+        }
+      );
+    }
 
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
@@ -113,7 +138,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const payload = await geminiRes.json();
     const rawCandidate =
-      payload?.candidates?.[0]?.content?.parts?.[0]?.text || '{"reply":"How can I help with your delivery?","actions":[]}';
+      payload?.candidates?.[0]?.content?.parts?.[0]?.text ||
+      '{"reply":"How can I help with your delivery?","actions":[]}';
     const usageTokens = Number(payload?.usageMetadata?.totalTokenCount || 280);
 
     let parsed: { reply?: string; actions?: unknown[] } = {};

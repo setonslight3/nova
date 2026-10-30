@@ -63,6 +63,7 @@ import {
   saveLaundryServices,
   savePaymentConfig,
   saveProductsCatalog,
+  subscribeToNovaRealtime,
   updateNovaOrder,
 } from './lib/supabase';
 import { NovaVoiceController, VoiceModeState } from './lib/voiceEngine';
@@ -260,6 +261,18 @@ export function App() {
       setOrders(ords);
     });
 
+    const unsubscribeRealtime = subscribeToNovaRealtime({
+      onOrdersChange: () => {
+        fetchOrders().then(setOrders);
+      },
+      onCatalogChange: () => {
+        fetchProductsCatalog().then(setProducts);
+      },
+      onSettingsChange: () => {
+        fetchPaymentConfig().then(setPaymentConfig);
+      },
+    });
+
     try {
       const saved = JSON.parse(localStorage.getItem(DELIVERY_LOCAL_KEY) || 'null');
       if (saved && typeof saved.university === 'string') {
@@ -275,6 +288,10 @@ export function App() {
     } catch {
       // Ignore
     }
+
+    return () => {
+      unsubscribeRealtime();
+    };
   }, []);
 
   // Persist bag locally
