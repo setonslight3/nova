@@ -1626,7 +1626,7 @@ export function App() {
             onChange={(e) => setInput(e.target.value)}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
-            placeholder={chatting ? 'Message Nova...' : 'Ask Nova anything or type an order...'}
+            placeholder={chatting ? 'Message Nova...' : 'Ask Nova anything...'}
             className={placeholderFade ? 'fading' : ''}
             aria-label="Ask Nova or type an order"
             rows={1}
