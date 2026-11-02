@@ -305,7 +305,7 @@ export const DEFAULT_PAYMENT_CONFIG: PlatformPaymentConfig = {
 
 export const DEFAULT_USER_SETTINGS: UserSettings = {
   voiceEnabled: true,
-  wakeWordEnabled: false,
+  wakeWordEnabled: true,
   allowHeyNova: true,
   allowHiNova: true,
   customWakePhrase: '',

@@ -143,26 +143,29 @@ function buildSmartOfflineFallback(
     }
   }
 
-  // Price inquiry fallback e.g. "how much is jollof" or "prices"
-  if (/\b(how\s+much|price|cost|rate)\b/.test(lower)) {
-    const matched = ctx.products.filter((p) =>
-      lower.includes(p.id) ||
-      p.name
-        .toLowerCase()
-        .split(/\s+/)
-        .some((w) => w.length >= 4 && lower.includes(w))
-    );
-    if (matched.length > 0) {
-      return {
-        reply: matched.map((p) => `${p.name} is ${formatNaira(p.price)} (${p.time}).`).join(' ') + ' Want me to add it to your bag?',
-        actions: [],
-        productIds: matched.map((p) => p.id),
-        engine: 'nlp',
-        confidence: 0.88,
-        tokensSavedEstimate: 590,
-        tokensUsedEstimate: 0,
-      };
-    }
+  // Product & price inquiry fallback e.g. "how much is jollof", "do you have shawarma", etc.
+  const matched = ctx.products.filter((p) =>
+    lower.includes(p.id) ||
+    p.name
+      .toLowerCase()
+      .split(/\s+/)
+      .some((w) => w.length >= 4 && lower.includes(w))
+  );
+  if (matched.length > 0) {
+    const first = matched[0];
+    return {
+      reply: `I found **${first.name}** for **${formatNaira(first.price)}** (${first.time}). I can add it to your bag for you right now, or you can browse the ${first.category} section!`,
+      actions: [],
+      productIds: matched.slice(0, 3).map((p) => p.id),
+      engine: 'nlp',
+      confidence: 0.88,
+      tokensSavedEstimate: 590,
+      tokensUsedEstimate: 0,
+      quickActions: [
+        { label: `+ Add ${first.name} (${formatNaira(first.price)})`, actionType: `ADD_PRODUCT:${first.id}` },
+        { label: `Browse ${first.category} →`, actionType: first.category === 'Food' ? 'BROWSE_FOOD' : 'BROWSE_GROCERIES' },
+      ],
+    };
   }
 
   if (attachments.length > 0) {

@@ -137,22 +137,6 @@ body {
   font-weight: 700;
 }
 
-.wake-pill.is-standby {
-  border-color: #b7e1cf;
-  background: #effaf4;
-  color: var(--nova-emerald);
-  font-weight: 600;
-}
-
-.wake-pill.is-listening {
-  border-color: var(--nova-emerald);
-  background: var(--nova-emerald);
-  color: #ffffff;
-  font-weight: 600;
-  box-shadow: 0 0 0 4px rgba(4, 120, 87, 0.18);
-  animation: wake-pulse 1.4s infinite;
-}
-
 .admin-pill.active {
   background: #1f242d;
   border-color: #1f242d;
@@ -338,15 +322,35 @@ body:has(.chat-mode) {
 
 .composer {
   background: var(--nova-dark);
-  border: 1px solid #30343f;
-  border-radius: 18px;
-  padding: 14px 16px;
-  box-shadow: 0 10px 28px rgba(17, 20, 30, 0.09);
+  border: 1px solid #303542;
+  border-radius: 26px;
+  padding: 6px 10px;
+  box-shadow: 0 4px 18px rgba(17, 20, 30, 0.08);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.composer:focus-within {
+  border-color: var(--nova-green);
+  box-shadow: 0 0 0 2px rgba(10, 113, 84, 0.2), 0 6px 22px rgba(17, 20, 30, 0.12);
 }
 
 .chat-mode .composer {
-  padding: 10px 13px;
-  border-radius: 16px;
+  padding: 6px 10px;
+  border-radius: 24px;
+}
+
+.composer-main-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.composer-tools-inline {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
 }
 
 .composer textarea {
@@ -354,23 +358,27 @@ body:has(.chat-mode) {
   background: transparent;
   border: 0;
   outline: 0 !important;
-  width: 100%;
-  min-height: 68px;
-  max-height: 180px;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 24px;
+  max-height: 120px;
+  padding: 4px 6px;
+  font-size: 14.5px;
+  line-height: 20px;
   resize: none;
-  line-height: 1.6;
   display: block;
 }
 
 .chat-mode .composer textarea {
-  min-height: 36px;
-  max-height: min(140px, 24dvh);
-  padding: 6px 2px;
-  line-height: 22px;
+  min-height: 24px;
+  max-height: min(120px, 20dvh);
+  padding: 4px 6px;
+  line-height: 20px;
 }
 
 .composer textarea::placeholder {
-  color: #9ea2ae;
+  color: #8f95a4;
+  font-size: 14px;
   transition: opacity 0.18s;
 }
 
@@ -378,43 +386,29 @@ body:has(.chat-mode) {
   opacity: 0;
 }
 
-.composer-tools {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 8px;
-}
-
-.chat-mode .composer-tools {
-  padding-top: 4px;
-}
-
-.composer-left-tools {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
 .attach {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   background: transparent;
   border: 0;
-  color: #c5c8d2;
+  color: #9ba3b4;
+  cursor: pointer;
   transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
 }
 
 .attach:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
   color: #ffffff;
 }
 
 .attach.mic-btn.active {
   background: var(--nova-emerald);
   color: #ffffff;
+  animation: wake-pulse 1.4s infinite;
 }
 
 .send {
@@ -422,16 +416,25 @@ body:has(.chat-mode) {
   background: var(--nova-green);
   color: #ffffff;
   border-radius: 50%;
-  width: 38px;
-  height: 38px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
-  transition: transform 0.15s, background 0.15s;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s, opacity 0.15s;
+  flex-shrink: 0;
+}
+
+.send:disabled {
+  background: #2a2f3a;
+  color: #636d7e;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .send:hover:not(:disabled) {
   background: var(--nova-emerald-dark);
-  transform: scale(1.04);
+  transform: scale(1.05);
 }
 
 .voice-listening-banner {
@@ -557,6 +560,38 @@ body:has(.chat-mode) {
 /* ==========================================================================
    SERVICE CHIPS & CONVERSATION BUBBLES
    ========================================================================== */
+.categories-quick-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.category-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid #e1e7e4;
+  background: #ffffff;
+  color: #2e3532;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.category-pill-btn:hover {
+  border-color: var(--nova-green);
+  background: var(--nova-green-soft);
+  color: var(--nova-green);
+  transform: translateY(-1px);
+}
+
 .categories {
   display: flex;
   justify-content: center;
@@ -2929,25 +2964,70 @@ body:has(.chat-mode) {
 
 @media (max-width: 680px) {
   .nova-header {
-    height: 62px;
-    padding: 0 14px;
+    height: 56px;
+    padding: 0 12px;
+    gap: 6px;
+    overflow: hidden;
+  }
+  .nova-header-left {
+    gap: 8px;
+    min-width: 0;
   }
   .nova-logo {
-    height: 31px;
+    height: 28px;
+  }
+  .nova-header-actions {
+    gap: 5px;
+    flex-shrink: 0;
   }
   .history-pill .pill-label,
   .admin-pill .pill-label {
     display: none;
   }
-  .header-pill {
-    padding: 0 9px;
+  .header-pill.history-pill,
+  .header-pill.admin-pill {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 50%;
+    justify-content: center;
+  }
+  .header-icon-btn,
+  .bag-button {
+    width: 36px;
+    height: 36px;
+  }
+  .intro h1 {
+    font-size: 22px;
+    letter-spacing: -0.4px;
+  }
+  .intro p {
+    font-size: 13px;
   }
   .chat-mode .nova-main.conversation {
-    padding: 0 14px;
+    padding: 0 12px;
   }
   .chat-mode > .composer-wrap {
-    width: calc(100% - 24px);
-    gap: 7px;
+    width: calc(100% - 16px);
+    gap: 6px;
+  }
+  .navigation-back {
+    height: 36px;
+    padding: 0 9px;
+    font-size: 11.5px;
+  }
+  .composer {
+    padding: 5px 8px;
+    border-radius: 22px;
+  }
+  .attach,
+  .send {
+    width: 30px;
+    height: 30px;
+  }
+  .composer textarea {
+    font-size: 13.5px;
+    padding: 3px 4px;
   }
   .products,
   .laundry-services,
@@ -2966,7 +3046,7 @@ body:has(.chat-mode) {
     flex-direction: column;
   }
   .admin-dashboard {
-    padding: 18px 14px 48px;
+    padding: 16px 12px 48px;
   }
   .admin-kpi-grid {
     grid-template-columns: minmax(0, 1fr);

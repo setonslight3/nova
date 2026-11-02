@@ -597,16 +597,15 @@ export function runLocalNlp(
     }
   }
 
-  // 9. PRODUCT ORDERING / ADD TO BAG INTENTS
-  //    Matches "I want 2 jollof rice and milk", "add shawarma", "give me bread and eggs", or direct product mention
-  if (!isQuestionAboutProduct && !isExplicitNavigationVerb) {
-    const matchedProducts = matchProductsWithQuantities(text, ctx.products);
-    const hasOrderingVerb =
-      /\b(add|want|need|get\s+me|give\s+me|order|buy|bring|pack|plates?\s+of|loaves?\s+of|bottles?\s+of|i'?ll\s+take|can\s+i\s+have)\b/.test(
-        lower
-      );
+  // 9. PRODUCT ORDERING / ASKING FOR SOMETHING INTENTS
+  // If somebody asks for something they want: show them how to get to it AND offer to do the job!
+  const matchedProducts = matchProductsWithQuantities(text, ctx.products);
+  const isDirectAddVerb =
+    /\b(add|put|throw|include|pack|order\s+now|buy\s+now|i'?ll\s+take|bring\s+me)\b/.test(lower);
 
-    if (matchedProducts.length > 0 && (hasOrderingVerb || tokens.length <= 5)) {
+  if (matchedProducts.length > 0 && !isExplicitNavigationVerb) {
+    // If user explicitly commanded to add/buy with quantity:
+    if (isDirectAddVerb && !isQuestionAboutProduct) {
       const actions: AIAction[] = [
         ...detailActions,
         ...matchedProducts.map((m) => ({
@@ -623,7 +622,7 @@ export function runLocalNlp(
         reply: `Added ${itemSummary} to your bag! Are you ready to pay, or would you like to add more items?`,
         actions,
         engine: 'nlp',
-        confidence: 0.93,
+        confidence: 0.95,
         tokensSavedEstimate: 720,
         tokensUsedEstimate: 0,
         quickActions: [
@@ -632,6 +631,43 @@ export function runLocalNlp(
         ],
       };
     }
+
+    // When somebody asks for something they want: show them how to get to it or offer to do its job!
+    const primary = matchedProducts[0].product;
+    const isSingle = matchedProducts.length === 1;
+    const itemLabel = isSingle
+      ? `${primary.name} (${formatNaira(primary.price)} · ${primary.time})`
+      : matchedProducts.map((m) => `${m.product.name} (${formatNaira(m.product.price)})`).join(', ');
+
+    const replyMsg = isSingle
+      ? `Here is our **${primary.name}** for **${formatNaira(primary.price)}** (${primary.time}). I can add it to your bag for you right now, or show you the ${primary.category} menu.`
+      : `I found ${itemLabel}. Would you like me to add it to your bag or show you the menu?`;
+
+    const quickActions = [
+      {
+        label: `+ Add ${primary.name} (${formatNaira(primary.price)})`,
+        actionType: `ADD_PRODUCT:${primary.id}`,
+      },
+      {
+        label: `Browse ${primary.category} →`,
+        actionType: primary.category === 'Food' ? 'BROWSE_FOOD' : 'BROWSE_GROCERIES',
+      },
+    ];
+
+    if (Object.values(ctx.bag).reduce((a, b) => a + b, 0) > 0) {
+      quickActions.push({ label: 'Proceed to checkout →', actionType: 'GO_TO_CHECKOUT' });
+    }
+
+    return {
+      reply: replyMsg,
+      actions: detailActions,
+      productIds: matchedProducts.map((m) => m.product.id),
+      engine: 'nlp',
+      confidence: 0.94,
+      tokensSavedEstimate: 660,
+      tokensUsedEstimate: 0,
+      quickActions,
+    };
   }
 
   // 10. SUBCATEGORY & CATEGORY NAVIGATION INTENTS (implicit mentions like "groceries" or "hungry")

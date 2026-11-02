@@ -1294,6 +1294,16 @@ export function App() {
   };
 
   const handleQuickActionClick = (actionType: string) => {
+    if (actionType.startsWith('ADD_PRODUCT:')) {
+      const prodId = actionType.replace('ADD_PRODUCT:', '');
+      const prod = products.find((p) => p.id === prodId);
+      if (prod) {
+        changeBagQty(prod.id, 1, undefined, true);
+        flashToast(`Added ${prod.name} to bag!`);
+      }
+      return;
+    }
+
     switch (actionType) {
       case 'GO_TO_CHECKOUT':
         goToCheckout();
@@ -1310,12 +1320,24 @@ export function App() {
       case 'BROWSE_FOOD':
         selectBrowseNode('food');
         break;
+      case 'BROWSE_GROCERIES':
+        selectBrowseNode('groceries');
+        break;
+      case 'OPEN_BAG':
+        setBagOpen(true);
+        break;
       case 'OPEN_ORDERS':
         setOrdersOpen(true);
         break;
       case 'OPEN_AI_SETTINGS':
         setSettingsTab('ai');
         setSettingsOpen(true);
+        break;
+      case 'OPEN_SETTINGS':
+        setSettingsOpen(true);
+        break;
+      case 'OPEN_ADMIN':
+        setScreen('admin');
         break;
     }
   };
@@ -1518,7 +1540,7 @@ export function App() {
                   <strong>"{interimVoiceText}"</strong>
                 </>
               ) : (
-                'Nova is listening… speak your order or navigation command'
+                'Nova is listening… speak your order or search request'
               )}
             </p>
             <button
@@ -1558,34 +1580,16 @@ export function App() {
           </div>
         )}
 
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          placeholder={chatting ? 'Message Nova or say "Hey Nova"...' : EXAMPLES[exampleIdx]}
-          className={placeholderFade ? 'fading' : ''}
-          aria-label="Message Nova"
-          rows={chatting ? 1 : 3}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-              e.preventDefault();
-              handleSendTurn();
-            }
-          }}
-        />
-
-        <div className="composer-tools">
-          <div className="composer-left-tools">
+        <div className="composer-main-bar">
+          <div className="composer-tools-inline left-tools">
             <button
               type="button"
               className="attach"
               onClick={() => fileInputRef.current?.click()}
-              title="Attach receipt, photo, or shopping list (JPG, PNG, WebP, PDF, TXT, CSV)"
-              aria-label="Attach supported file"
+              title="Attach photo, list, or receipt"
+              aria-label="Attach file"
             >
-              <Paperclip size={18} />
+              <Paperclip size={17} />
             </button>
 
             <button
@@ -1595,12 +1599,41 @@ export function App() {
                 setCameraTarget('chat');
                 setCameraOpen(true);
               }}
-              title="Take photo with camera"
+              title="Take photo"
               aria-label="Take photo"
             >
-              <Camera size={18} />
+              <Camera size={17} />
             </button>
+          </div>
 
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            placeholder={chatting ? 'Message Nova...' : 'Ask Nova anything or type an order...'}
+            className={placeholderFade ? 'fading' : ''}
+            aria-label="Ask Nova or type an order"
+            rows={1}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                handleSendTurn();
+              }
+            }}
+          />
+
+          <input
+            type="file"
+            ref={fileInputRef}
+            hidden
+            multiple
+            accept={ACCEPT_ATTRIBUTE}
+            onChange={handleFileInputChange}
+          />
+
+          <div className="composer-tools-inline right-tools">
             {settings.voiceEnabled && (
               <button
                 type="button"
@@ -1619,68 +1652,53 @@ export function App() {
                 }
                 aria-label="Voice command microphone"
               >
-                {isVoiceActivelyListening ? <Volume2 size={18} /> : <Mic size={18} />}
+                {isVoiceActivelyListening ? <Volume2 size={17} /> : <Mic size={17} />}
               </button>
             )}
 
-            <input
-              type="file"
-              ref={fileInputRef}
-              hidden
-              multiple
-              accept={ACCEPT_ATTRIBUTE}
-              onChange={handleFileInputChange}
-            />
+            <button
+              type="submit"
+              className="send"
+              disabled={(!input.trim() && pendingAttachments.length === 0) || typing}
+              aria-label="Send message"
+            >
+              <ArrowUp size={17} />
+            </button>
           </div>
-
-          <button
-            type="submit"
-            className="send"
-            disabled={(!input.trim() && pendingAttachments.length === 0) || typing}
-            aria-label="Send message"
-          >
-            <ArrowUp size={18} />
-          </button>
         </div>
       </form>
 
       {!chatting && (
-        <>
-          <div className="categories">
-            <button
-              type="button"
-              className="category"
-              onClick={() => startServiceFlow('Food')}
-            >
-              <UtensilsCrossed size={16} /> Food
-            </button>
-            <button
-              type="button"
-              className="category"
-              onClick={() => startServiceFlow('Groceries')}
-            >
-              <ShoppingBag size={16} /> Groceries
-            </button>
-            <button
-              type="button"
-              className="category"
-              onClick={() => startServiceFlow('Laundry')}
-            >
-              <Shirt size={16} /> Laundry
-            </button>
-            <button
-              type="button"
-              className="category"
-              onClick={() => startServiceFlow('Parcel Pickup')}
-            >
-              <Truck size={16} /> Parcel Pickup
-            </button>
-          </div>
-          <p className="demo-caption">
-            Hybrid Local NLP + Gemini AI · Say <strong>"Hey Nova"</strong> or{' '}
-            <strong>"Hi Nova"</strong> when Wake Word is active · Photos & PDF/TXT/CSV receipts supported
-          </p>
-        </>
+        <div className="categories-quick-row">
+          <button
+            type="button"
+            className="category-pill-btn"
+            onClick={() => startServiceFlow('Food')}
+          >
+            <UtensilsCrossed size={14} /> Food
+          </button>
+          <button
+            type="button"
+            className="category-pill-btn"
+            onClick={() => startServiceFlow('Groceries')}
+          >
+            <ShoppingBag size={14} /> Groceries
+          </button>
+          <button
+            type="button"
+            className="category-pill-btn"
+            onClick={() => startServiceFlow('Laundry')}
+          >
+            <Shirt size={14} /> Laundry
+          </button>
+          <button
+            type="button"
+            className="category-pill-btn"
+            onClick={() => startServiceFlow('Parcel Pickup')}
+          >
+            <Truck size={14} /> Parcel
+          </button>
+        </div>
       )}
     </div>
   );
@@ -1700,8 +1718,6 @@ export function App() {
         savedChatsCount={storedConversations.length}
         maxChatsLimit={settings.maxStoredConversations}
         isAdminView={isAdminView}
-        voiceState={voiceState}
-        wakeWordEnabled={settings.wakeWordEnabled}
         onGoHome={() => {
           setScreen('home');
           setCheckoutStage('idle');
@@ -1717,7 +1733,6 @@ export function App() {
         onToggleAdmin={() =>
           setScreen((curr) => (curr === 'admin' ? (messages.length ? 'category' : 'home') : 'admin'))
         }
-        onToggleWakeWordQuick={handleToggleWakeWordQuick}
       />
 
       {isAdminView ? (
@@ -1763,11 +1778,10 @@ export function App() {
               <>
                 <div className="intro">
                   <h1>
-                    What can <span>Nova</span> help you with today?
+                    What can <span>Nova</span> get you?
                   </h1>
                   <p>
-                    From hot meals and groceries to laundry and campus parcels — type, snap a
-                    photo, or say "Hey Nova".
+                    Campus food, groceries, laundry and parcels on demand.
                   </p>
                 </div>
                 {renderComposer()}

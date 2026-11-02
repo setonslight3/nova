@@ -1,14 +1,11 @@
 import React from 'react';
 import {
   History,
-  Mic,
-  MicOff,
   PackageCheck,
   Settings,
   ShieldCheck,
   ShoppingBag,
 } from 'lucide-react';
-import { VoiceModeState } from '../lib/voiceEngine';
 
 interface HeaderProps {
   bagCount: number;
@@ -16,15 +13,12 @@ interface HeaderProps {
   savedChatsCount: number;
   maxChatsLimit: number;
   isAdminView: boolean;
-  voiceState: VoiceModeState;
-  wakeWordEnabled: boolean;
   onGoHome: () => void;
   onOpenBag: () => void;
   onOpenOrders: () => void;
   onOpenHistory: () => void;
   onOpenSettings: (tab?: 'voice' | 'storage' | 'ai') => void;
   onToggleAdmin: () => void;
-  onToggleWakeWordQuick: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -33,21 +27,14 @@ export const Header: React.FC<HeaderProps> = ({
   savedChatsCount,
   maxChatsLimit,
   isAdminView,
-  voiceState,
-  wakeWordEnabled,
   onGoHome,
   onOpenBag,
   onOpenOrders,
   onOpenHistory,
   onOpenSettings,
   onToggleAdmin,
-  onToggleWakeWordQuick,
 }) => {
   const [logoOk, setLogoOk] = React.useState(true);
-
-  const isListeningNow =
-    voiceState === 'awake_listening' || voiceState === 'manual_listening';
-  const isWakeStandby = voiceState === 'standby_wake' || (wakeWordEnabled && voiceState !== 'unsupported');
 
   return (
     <header className="nova-header">
@@ -81,7 +68,7 @@ export const Header: React.FC<HeaderProps> = ({
             title="Saved conversations on this device"
             aria-label="Open saved chats history"
           >
-            <History size={15} />
+            <History size={16} />
             <span className="pill-label">
               Chats <strong>{savedChatsCount}/{maxChatsLimit}</strong>
             </span>
@@ -90,32 +77,6 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="nova-header-actions">
-        <button
-          type="button"
-          className={
-            'header-pill wake-pill' +
-            (isListeningNow ? ' is-listening' : isWakeStandby ? ' is-standby' : '')
-          }
-          onClick={onToggleWakeWordQuick}
-          title={
-            isListeningNow
-              ? 'Nova is listening — click to finish'
-              : isWakeStandby
-              ? 'Wake word active: Say "Hey Nova" or "Hi Nova" (click to toggle)'
-              : 'Enable "Hey Nova" wake word'
-          }
-          aria-label="Toggle Hey Nova wake word"
-        >
-          {isWakeStandby || isListeningNow ? <Mic size={15} /> : <MicOff size={15} />}
-          <span className="pill-label">
-            {isListeningNow
-              ? 'Listening…'
-              : isWakeStandby
-              ? '"Hey Nova" On'
-              : 'Wake Off'}
-          </span>
-        </button>
-
         <button
           type="button"
           className="header-icon-btn"
@@ -144,8 +105,8 @@ export const Header: React.FC<HeaderProps> = ({
           title={isAdminView ? 'Return to Customer View' : 'Open Admin Dashboard'}
           aria-label={isAdminView ? 'Return to customer app' : 'Open Admin Dashboard'}
         >
-          <ShieldCheck size={15} />
-          <span className="pill-label">{isAdminView ? 'Exit Admin' : 'Admin'}</span>
+          <ShieldCheck size={16} />
+          <span className="pill-label">{isAdminView ? 'Exit' : 'Admin'}</span>
         </button>
 
         {!isAdminView && (
@@ -155,7 +116,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onOpenBag}
             aria-label={`Open shopping bag, ${bagCount} items`}
           >
-            <ShoppingBag size={20} />
+            <ShoppingBag size={19} />
             <span className="badge">{bagCount}</span>
           </button>
         )}
