@@ -196,6 +196,8 @@ export interface UserSettings {
   maxMessagesPerConversation: number;
 
   // AI & Token Optimization
+  enableLocalNlp: boolean;
+  enableGeminiApi: boolean;
   preferLocalNlpFirst: boolean;
   devGeminiApiKey: string;
 }

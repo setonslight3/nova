@@ -109,43 +109,57 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   if (!unlocked) {
     return (
-      <main className="admin-lock-screen">
-        <form
-          className="admin-lock-card"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (pinInput.trim() === (paymentConfig.adminPin || '2026')) {
-              sessionStorage.setItem('nova.admin.unlocked', '1');
-              setUnlocked(true);
-              setPinError('');
-            } else {
-              setPinError('Incorrect Admin PIN. (Default preview PIN: 2026)');
-            }
-          }}
-        >
-          <div className="lock-icon-circle">
-            <Lock size={22} />
+      <div className="admin-page-wrap">
+        <header className="admin-dedicated-header">
+          <div className="admin-header-brand">
+            <span className="nova-logo-fallback">NOVA</span>
+            <span className="admin-dedicated-badge">OPERATIONS PORTAL</span>
           </div>
-          <h1>Nova Admin Portal</h1>
-          <p>Enter your operator PIN to manage orders, verify receipts, and edit pricing.</p>
-          <input
-            type="password"
-            placeholder="Enter Admin PIN (default: 2026)"
-            value={pinInput}
-            onChange={(e) => setPinInput(e.target.value)}
-            autoFocus
-          />
-          {pinError && <small className="field-error">{pinError}</small>}
-          <div className="lock-actions">
-            <button type="button" className="laundry-back" onClick={onExitAdmin}>
-              Back to Store
-            </button>
-            <button type="submit" className="primary">
-              Unlock Dashboard →
-            </button>
-          </div>
-        </form>
-      </main>
+          <button type="button" className="admin-return-link" onClick={onExitAdmin}>
+            ← Back to Store
+          </button>
+        </header>
+
+        <main className="admin-lock-screen">
+          <form
+            className="admin-lock-card"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (pinInput.trim() === (paymentConfig.adminPin || '2026')) {
+                sessionStorage.setItem('nova.admin.unlocked', '1');
+                setUnlocked(true);
+                setPinError('');
+              } else {
+                setPinError('Incorrect Operator Shortcode. (Default shortcode: 2026)');
+              }
+            }}
+          >
+            <div className="lock-icon-circle">
+              <Lock size={24} />
+            </div>
+            <h1>Dedicated Admin Login</h1>
+            <p>Enter your operator shortcode to access dispatch, verify receipts, and manage catalog.</p>
+            <div className="admin-pin-field-wrap">
+              <input
+                type="password"
+                placeholder="Enter Shortcode (default: 2026)"
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value)}
+                autoFocus
+              />
+            </div>
+            {pinError && <small className="field-error">{pinError}</small>}
+            <div className="lock-actions">
+              <button type="button" className="laundry-back" onClick={onExitAdmin}>
+                Return to Store
+              </button>
+              <button type="submit" className="primary">
+                Log In to Dashboard →
+              </button>
+            </div>
+          </form>
+        </main>
+      </div>
     );
   }
 
@@ -252,6 +266,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             }}
           >
             <Lock size={14} /> Lock
+          </button>
+          <button
+            type="button"
+            className="secondary-outline exit-admin-btn"
+            onClick={onExitAdmin}
+          >
+            ← Back to Store
           </button>
         </div>
       </div>

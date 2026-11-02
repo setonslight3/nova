@@ -206,15 +206,44 @@ export async function resolveUserTurn(
   ctx: NlpContext,
   settings: UserSettings
 ): Promise<AIResolutionResult> {
-  // Step 1: Run zero-token On-Device NLP first (unless user disabled local NLP priority)
-  if (settings.preferLocalNlpFirst || attachments.every((a) => a.kind === 'text')) {
+  const allowNlp = settings.enableLocalNlp !== false;
+  const allowGemini = settings.enableGeminiApi !== false;
+
+  // 1. Both engines disabled
+  if (!allowNlp && !allowGemini) {
+    return {
+      reply: 'Both Local NLP and Gemini API are currently disabled in Settings. Enable at least one engine under Settings → Hybrid AI to send queries.',
+      actions: [],
+      engine: 'nlp',
+      confidence: 1,
+      tokensSavedEstimate: 0,
+      tokensUsedEstimate: 0,
+    };
+  }
+
+  // 2. Local NLP check (if allowed)
+  if (allowNlp) {
     const localResult = runLocalNlp(message, attachments, ctx);
+    // If Gemini is disabled, we always stay on-device
+    if (!allowGemini) {
+      if (localResult && localResult.confidence >= 0.75) {
+        return localResult;
+      }
+      return buildSmartOfflineFallback(message, attachments, ctx);
+    }
+
+    // In hybrid mode, return local NLP if confident
     if (localResult && localResult.confidence >= 0.78) {
       return localResult;
     }
   }
 
-  // Step 2: Escalate to Gemini AI (Serverless /api/chat first, or local dev key in Settings)
+  // 3. Pure Gemini API (or hybrid escalation when local NLP did not match)
+  if (!allowGemini) {
+    return buildSmartOfflineFallback(message, attachments, ctx);
+  }
+
+  // Escalate to Gemini AI (Serverless /api/chat first, or local dev key in Settings)
   const compactCatalog = buildCompactCatalog(ctx);
   const compactState = buildCompactState(ctx);
   const recentTurns = ctx.recentMessages
@@ -236,11 +265,11 @@ export async function resolveUserTurn(
         actions: res.actions,
         engine: 'gemini',
         confidence: 0.95,
-        tokensSavedEstimate: 420, // Saved via compact SKU context pruning
+        tokensSavedEstimate: 420,
         tokensUsedEstimate: res.tokensUsed,
       };
     } catch {
-      // Fall through to server endpoint or offline fallback
+      // Fall through to server endpoint
     }
   }
 
@@ -285,6 +314,18 @@ export async function resolveUserTurn(
     } catch {
       // Try next configured endpoint
     }
+  }
+
+  // If user disabled NLP to test pure Gemini API and the API call failed:
+  if (!allowNlp) {
+    return {
+      reply: 'Gemini API call could not be completed. For pure API testing without a backend, please paste your Gemini API Key in Settings → Hybrid AI.',
+      actions: [],
+      engine: 'gemini',
+      confidence: 0.5,
+      tokensSavedEstimate: 0,
+      tokensUsedEstimate: 0,
+    };
   }
 
   return buildSmartOfflineFallback(message, attachments, ctx);

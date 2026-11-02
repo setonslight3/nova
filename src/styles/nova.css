@@ -2392,8 +2392,107 @@ body:has(.chat-mode) {
 }
 
 /* ==========================================================================
-   ADMIN DASHBOARD
+   ADMIN DASHBOARD & DEDICATED LOGIN PAGE
    ========================================================================== */
+.admin-page-wrap {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: #f7faf8;
+}
+
+.admin-dedicated-header {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5ebe7;
+}
+
+.admin-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-dedicated-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #1f242d;
+  color: #ffffff;
+}
+
+.admin-return-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--nova-green);
+  background: transparent;
+  border: 1px solid #d2ded7;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-return-link:hover {
+  background: var(--nova-green-soft);
+  border-color: var(--nova-green);
+}
+
+.exit-admin-btn {
+  color: #b91c1c !important;
+  border-color: #fecaca !important;
+  background: #fef2f2 !important;
+}
+
+.exit-admin-btn:hover {
+  background: #fee2e2 !important;
+  border-color: #ef4444 !important;
+}
+
+.admin-jump-card {
+  margin-top: 18px;
+  background: #f8faf9;
+  border: 1px solid #e1e9e4;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.setting-jump-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.setting-jump-row p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.admin-link-btn {
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #1f242d;
+  color: #ffffff;
+  border: 0;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.admin-link-btn:hover {
+  background: #0f1217;
+}
+
 .admin-lock-screen {
   min-height: calc(100dvh - 70px);
   display: grid;

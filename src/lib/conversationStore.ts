@@ -19,6 +19,8 @@ export function loadUserSettings(): UserSettings {
     return {
       ...DEFAULT_USER_SETTINGS,
       ...parsed,
+      enableLocalNlp: typeof parsed.enableLocalNlp === 'boolean' ? parsed.enableLocalNlp : true,
+      enableGeminiApi: typeof parsed.enableGeminiApi === 'boolean' ? parsed.enableGeminiApi : true,
       maxStoredConversations: Math.min(
         50,
         Math.max(1, Number(parsed.maxStoredConversations) || DEFAULT_USER_SETTINGS.maxStoredConversations)

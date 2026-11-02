@@ -245,6 +245,20 @@ export function App() {
     toastTimerRef.current = window.setTimeout(() => setToast(''), 4200);
   }, []);
 
+  // Dedicated Admin routing via URL hash #admin
+  React.useEffect(() => {
+    const handleHash = () => {
+      if (window.location.hash === '#admin') {
+        setScreen('admin');
+      } else if (window.location.hash === '#home' && screen === 'admin') {
+        setScreen(messages.length ? 'category' : 'home');
+      }
+    };
+    handleHash();
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, [messages.length, screen]);
+
   // Load initial catalog, zones, payment config & orders (from Supabase or LocalStorage)
   React.useEffect(() => {
     Promise.all([
@@ -847,7 +861,7 @@ export function App() {
       }
 
       if (screen === 'home' || screen === 'admin') {
-        setScreen('categories');
+        setScreen('category');
       }
 
       const displayUserText =
@@ -1717,7 +1731,6 @@ export function App() {
         activeOrdersCount={activeOrdersCount}
         savedChatsCount={storedConversations.length}
         maxChatsLimit={settings.maxStoredConversations}
-        isAdminView={isAdminView}
         onGoHome={() => {
           setScreen('home');
           setCheckoutStage('idle');
@@ -1730,9 +1743,6 @@ export function App() {
           if (tab) setSettingsTab(tab);
           setSettingsOpen(true);
         }}
-        onToggleAdmin={() =>
-          setScreen((curr) => (curr === 'admin' ? (messages.length ? 'category' : 'home') : 'admin'))
-        }
       />
 
       {isAdminView ? (
@@ -1769,7 +1779,10 @@ export function App() {
             setOrders(latest);
             flashToast('Orders synced.');
           }}
-          onExitAdmin={() => setScreen(messages.length ? 'category' : 'home')}
+          onExitAdmin={() => {
+            window.location.hash = '#home';
+            setScreen(messages.length ? 'category' : 'home');
+          }}
         />
       ) : (
         <>
@@ -1797,15 +1810,6 @@ export function App() {
                     Nova is thinking<span>•••</span>
                   </p>
                 )}
-
-                {screen === 'categories' &&
-                  renderNovaMessage({
-                    id: 'service-menu',
-                    role: 'nova',
-                    text: 'What are we getting today?',
-                    timestamp: '',
-                    services: true,
-                  })}
 
                 {laundryActive ? (
                   <div className="laundry-session" ref={laundryRef}>
@@ -1897,18 +1901,6 @@ export function App() {
                       onSubmitOrder={handleSubmitFoodOrder}
                     />
                   </div>
-                ) : bagCount > 0 ? (
-                  <div className="shopping-actions">
-                    {renderNovaMessage({
-                      id: 'shopping-next',
-                      role: 'nova',
-                      text: shoppingPrompt
-                        ? 'Of course! What else would you like to add?'
-                        : 'Ready to check out and pay, or would you like to add more items?',
-                      timestamp: '',
-                      shopping: true,
-                    })}
-                  </div>
                 ) : null}
 
                 <div ref={endRef} />
@@ -1987,6 +1979,10 @@ export function App() {
           flashToast('All saved chats cleared from this device.');
         }}
         onClose={() => setSettingsOpen(false)}
+        onGoToAdmin={() => {
+          window.location.hash = '#admin';
+          setScreen('admin');
+        }}
       />
 
       <CameraModal

@@ -318,6 +318,8 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   maxStoredConversations: 10,
   maxMessagesPerConversation: 60,
 
+  enableLocalNlp: true,
+  enableGeminiApi: true,
   preferLocalNlpFirst: true,
   devGeminiApiKey: '',
 };

@@ -21,6 +21,7 @@ interface SettingsModalProps {
   onUpdateSettings: (next: UserSettings) => void;
   onClearAllConversations: () => void;
   onClose: () => void;
+  onGoToAdmin?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -32,6 +33,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onUpdateSettings,
   onClearAllConversations,
   onClose,
+  onGoToAdmin,
 }) => {
   const [tab, setTab] = React.useState<'voice' | 'storage' | 'ai'>(initialTab);
   const [confirmClear, setConfirmClear] = React.useState(false);
@@ -370,37 +372,59 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="token-telemetry-card">
                 <div className="telemetry-title">
                   <Sparkles size={16} />
-                  <strong>Hybrid NLP + Gemini Token Optimizer</strong>
+                  <strong>AI Engine & Testing Controls</strong>
                 </div>
                 <div className="telemetry-stats">
                   <div>
-                    <span>Local NLP (0 tokens)</span>
-                    <strong>{tokenMetrics.localNlpCount} turns ({nlpRatio}%)</strong>
+                    <span>Local NLP</span>
+                    <strong>{settings.enableLocalNlp !== false ? 'Enabled' : 'Disabled'}</strong>
                   </div>
                   <div>
-                    <span>Gemini AI Escalations</span>
-                    <strong>{tokenMetrics.geminiCallCount} calls</strong>
+                    <span>Google Gemini API</span>
+                    <strong>{settings.enableGeminiApi !== false ? 'Enabled' : 'Disabled'}</strong>
                   </div>
                   <div>
-                    <span>Est. Tokens Saved</span>
-                    <strong>{tokenMetrics.estimatedTokensSaved.toLocaleString()}</strong>
+                    <span>Active Test Mode</span>
+                    <strong>
+                      {!settings.enableLocalNlp && settings.enableGeminiApi
+                        ? 'Pure API Only'
+                        : settings.enableLocalNlp && !settings.enableGeminiApi
+                        ? 'Pure NLP Only'
+                        : settings.enableLocalNlp && settings.enableGeminiApi
+                        ? 'Hybrid Smart'
+                        : 'Both Paused'}
+                    </strong>
                   </div>
                 </div>
               </div>
 
-              <div className="setting-toggle-row highlight-row">
+              <div className="setting-toggle-row">
                 <div>
-                  <strong>Zero-Token Local NLP Priority (Recommended)</strong>
+                  <strong>Enable Local NLP Engine</strong>
                   <p>
-                    Resolves ordering, cart edits, section navigation, and checkout/payment
-                    jumps on device in 0 ms, escalating only complex questions & photos/PDFs to
-                    Gemini 2.5 Flash.
+                    On-device natural language rule matching. Turn this OFF if you want to test
+                    pure Google Gemini API replies directly without local NLP intervention.
                   </p>
                 </div>
                 <input
                   type="checkbox"
-                  checked={settings.preferLocalNlpFirst}
-                  onChange={(e) => patch('preferLocalNlpFirst', e.target.checked)}
+                  checked={settings.enableLocalNlp !== false}
+                  onChange={(e) => patch('enableLocalNlp', e.target.checked)}
+                />
+              </div>
+
+              <div className="setting-toggle-row">
+                <div>
+                  <strong>Enable Gemini AI (Google API)</strong>
+                  <p>
+                    Connects to Gemini 2.5 Flash for complex queries, open-ended answers, and
+                    receipt photos. Turn this OFF to test only on-device NLP.
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={settings.enableGeminiApi !== false}
+                  onChange={(e) => patch('enableGeminiApi', e.target.checked)}
                 />
               </div>
 
@@ -413,11 +437,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   onChange={(e) => patch('devGeminiApiKey', e.target.value)}
                 />
                 <small>
-                  In production on Vercel, Gemini runs securely via <code>/api/chat</code> using
-                  your server environment variable. Paste a key here only if testing Gemini
-                  Vision locally before deployment.
+                  When Local NLP is turned off, Nova uses this key for pure direct API calls
+                  during local testing without a live backend.
                 </small>
               </label>
+
+              {onGoToAdmin && (
+                <div className="setting-group-card admin-jump-card">
+                  <div className="setting-jump-row">
+                    <div>
+                      <strong>Operator & Admin Portal</strong>
+                      <p>Access the dedicated orders dashboard, pricing editor, and receipt verifier.</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="admin-link-btn"
+                      onClick={() => {
+                        onClose();
+                        onGoToAdmin();
+                      }}
+                    >
+                      Go to Admin Login →
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
